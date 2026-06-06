@@ -1,0 +1,32 @@
+# Grafana Alloy log shipper → Grafana Cloud Loki.
+# Deploy on the Dokploy host as a Docker Compose application. It tails every
+# container's logs via the Docker socket and pushes them to Grafana Cloud.
+services:
+  alloy:
+    image: grafana/alloy:latest
+    container_name: kakaw-alloy
+    restart: unless-stopped
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      # From Grafana Cloud → Loki → "Send Logs" / Access Policy token.
+      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL}
+      GRAFANA_CLOUD_LOKI_USER: ${GRAFANA_CLOUD_LOKI_USER}
+      GRAFANA_CLOUD_API_TOKEN: ${GRAFANA_CLOUD_API_TOKEN}
+      # Identifies this host in the `host` label.
+      ALLOY_HOST_LABEL: ${ALLOY_HOST_LABEL:-dokploy}
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      # Read-only access to the Docker socket for log discovery/tailing.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    ports:
+      # Alloy debug UI — bound to localhost only. Reach it via an SSH tunnel:
+      #   ssh -L 12345:localhost:12345 <host>  →  http://localhost:12345
+      - "127.0.0.1:12345:12345"
+
+volumes:
+  alloy-data:

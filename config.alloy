@@ -1,0 +1,85 @@
+// Grafana Alloy — collects every Docker container's logs on this host and ships
+// them to Grafana Cloud Loki. Runs on the Dokploy host and reads the Docker
+// socket; no per-application change is needed (backend, agent, postgres are all
+// picked up automatically).
+
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+// 1) Discover running containers via the Docker socket.
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// 2) Relabel: derive a clean `service` label from the container name, tag the
+//    environment + host, and drop Alloy's own logs (avoids a feedback loop).
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Docker reports the name as "/my-container"; strip the leading slash.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.*)"
+    target_label  = "service"
+  }
+
+  rule {
+    target_label = "env"
+    replacement  = "prod"
+  }
+
+  rule {
+    target_label = "host"
+    replacement  = sys.env("ALLOY_HOST_LABEL")
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?.*alloy.*"
+    action        = "drop"
+  }
+}
+
+// 3) Read the discovered containers' stdout/stderr.
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.kakaw.receiver]
+}
+
+// 4) Parse JSON lines (backend pino + agent PipelineLogger) and lift ONLY low
+//    cardinality fields into labels. requestId/userId/messageId stay as log
+//    line fields — promoting them to labels would explode Loki's index.
+loki.process "kakaw" {
+  forward_to = [loki.write.grafana_cloud.receiver]
+
+  stage.json {
+    expressions = {
+      level   = "level",
+      service = "service",
+      event   = "event",
+    }
+  }
+
+  // `level` is the only field promoted to a label.
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+}
+
+// 5) Push to Grafana Cloud Loki (credentials come from the environment).
+loki.write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_LOKI_USER")
+      password = sys.env("GRAFANA_CLOUD_API_TOKEN")
+    }
+  }
+}
