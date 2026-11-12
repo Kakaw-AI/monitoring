@@ -1,7 +1,10 @@
-# Kakaw monitoring — logs to Grafana Cloud
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/banner-dark.svg">
+  <img alt="monitoring — kakaw-ai by gitnasr" src=".github/banner-light.svg" width="100%">
+</picture>
 
-Ships every container's logs from the Dokploy host into **Grafana Cloud Loki**
-using **Grafana Alloy**, plus an importable Grafana dashboard.
+Ships every container's logs from the Dokploy host into Grafana Cloud Loki
+using Grafana Alloy, plus an importable Grafana dashboard.
 
 There is no self-hosted Grafana or Loki here — logs go to the existing Grafana
 Cloud instance. Only the Alloy collector runs on the host.
@@ -28,7 +31,7 @@ them with LogQL, e.g. `{service="agent"} | json | requestId="…"`.
 1. In Grafana Cloud → your stack → **Loki → Send Logs**, copy the push URL and
    user/instance ID, and create an Access Policy **token** with `logs:write`.
 2. Create a new **Docker Compose** application in Dokploy pointing at this
-   repository (`gitnasr/kakaw-monitoring`); the compose file is at the root.
+   repository (`Kakaw-AI/monitoring`); the compose file is at the root.
 3. Set the environment variables from `.env.example`
    (`GRAFANA_CLOUD_LOKI_URL`, `GRAFANA_CLOUD_LOKI_USER`,
    `GRAFANA_CLOUD_API_TOKEN`, optional `ALLOY_HOST_LABEL`).
