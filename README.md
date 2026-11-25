@@ -49,3 +49,24 @@ them with LogQL, e.g. `{service="agent"} | json | requestId="…"`.
 
 Import `dashboards/kakaw-logs.json` in Grafana Cloud
 (**Dashboards → New → Import**) and select the Loki data source when prompted.
+
+## Dashboards on grafana.gitnasr.com
+
+The backend and agent send OpenTelemetry traces, metrics and logs to the
+self-hosted Alloy at `http://alloy:4318`. `dashboards/build.mjs` builds two
+dashboards in the **Kakaw** folder from that data:
+
+| Dashboard | Shows |
+|-----------|-------|
+| **Kakaw — Agent** (`kakaw-agent`) | Time and tokens per question, split by graph layer and by LLM call, provider cache hits, outcomes, Gemini latency, slowest runs, recent questions |
+| **Kakaw — Service health** (`kakaw-service`) | Backend traffic, errors and latency by route, Postgres and customer-database calls, outbound calls, memory, CPU, event loop, warnings and errors |
+
+Edit `build.mjs`, not the JSON. It regenerates `kakaw-*.json` on every run.
+
+```bash
+node dashboards/build.mjs                       # write the JSON only
+GRAFANA_URL=https://grafana.gitnasr.com GRAFANA_TOKEN=glsa_... \
+  node dashboards/build.mjs --push              # also upload, overwriting the live copy
+```
+
+The token needs a service account that can write dashboards and folders.
